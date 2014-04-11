@@ -380,22 +380,34 @@ final class Image extends AbstractImage
                 $maskSize, $size
             ));
         }
+        
+        $transparent = imagecolorallocatealpha($this->resource, 255, 255, 255, 127);
 
         for ($x = 0, $width = $size->getWidth(); $x < $width; $x++) {
             for ($y = 0, $height = $size->getHeight(); $y < $height; $y++) {
-                $position  = new Point($x, $y);
-                $color     = $this->getColorAt($position);
-                $maskColor = $mask->getColorAt($position);
+                
+                $maskColor = imagecolorat($mask->resource, $x, $y);
 
-                $round     = (int) round(max($color->getAlpha(), (100 - $color->getAlpha()) * $maskColor->getRed() / 255));
-
-                if (false === imagesetpixel(
-                    $this->resource,
-                    $x, $y,
-                    $this->getColor($color->dissolve($round - $color->getAlpha()))
-                )) {
-                    throw new RuntimeException('Apply mask operation failed');
+                // do nothing if the pixel is black
+                if($maskColor === 0) {
+                    continue;
                 }
+                
+                // make fully transparent if the pixel is white
+                if($maskColor === 16777215) {
+                    imagesetpixel($this->resource, $x, $y, $transparent);
+                    continue;
+                }
+                
+                // make party transparent
+                $transparency = round($maskColor / 132104, 0, PHP_ROUND_HALF_DOWN);
+                $imageColor = imagecolorat($this->resource, $x, $y);
+                $red = ($imageColor >> 16) & 0xFF;
+                $green = ($imageColor >> 8) & 0xFF;
+                $blue = $imageColor & 0xFF;
+
+                imagesetpixel($this->resource, $x, $y, 
+                    imagecolorallocatealpha($this->resource, $red, $green, $blue, $transparency));
             }
         }
 
